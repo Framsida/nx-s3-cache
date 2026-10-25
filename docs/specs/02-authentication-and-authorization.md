@@ -4,7 +4,7 @@
 |---|---|
 | Status | Draft |
 | Depends on | [01 — Nx remote cache HTTP contract](./01-nx-remote-cache-contract.md) |
-| Decisions | D-8 (signed STS token), D-9 (every allowed principal may read and write) |
+| Decisions | D-8 (signed STS token), D-9 (every allowed principal may read and write), D-11 (named roles only) |
 
 The key words MUST, MUST NOT, SHOULD and MAY are used as in RFC 2119.
 
@@ -102,7 +102,7 @@ run without a network call.
 | STS `Arn` form | Normalized principal | Allowed? |
 |---|---|---|
 | `arn:aws:sts::<acct>:assumed-role/<RoleName>/<SessionName>` | `role:<acct>:<RoleName>` (session name kept for audit) | Yes, if it matches a rule |
-| `arn:aws:iam::<acct>:user/<path/><UserName>` | `user:<acct>:<UserName>` | Open question AQ-3 |
+| `arn:aws:iam::<acct>:user/<path/><UserName>` | — | **Never** (D-11: roles only) |
 | `arn:aws:iam::<acct>:root` | — | **Never** |
 | `arn:aws:sts::<acct>:federated-user/<Name>` | — | **Never** (unless decided otherwise) |
 
@@ -116,16 +116,25 @@ Lambda as configuration:
 
 ```
 rules = [
-  { account = "<12-digit id>", role_name_pattern = "<glob>", permissions = ["read", "write"] },
+  {
+    account           = "<12-digit id>",
+    role_name_pattern = "<exact name or prefix*>",
+    workspaces        = ["<workspace id>", ...] | ["*"],
+    permissions       = ["read", "write"]
+  },
   ...
 ]
 ```
 
-- **AUTHZ-1** A principal that matches no rule gets 403. "Authenticated" means
-  "matches a rule", not "holds any valid AWS credential". Without rules,
-  anyone with an AWS account anywhere could use the cache.
-- **AUTHZ-2** If several rules match, their permissions are combined (union).
-- **AUTHZ-3** `GET` requires `read`. `PUT` requires `write`.
+- **AUTHZ-1** Under D-11, only named roles are allowed: an explicit account ID
+  plus a role-name pattern. A principal that matches no rule gets 403.
+  "Authenticated" means "matches a rule", not "holds any valid AWS credential".
+  Without rules, anyone with an AWS account anywhere could use the cache.
+- **AUTHZ-2** If several rules match, the union of their workspaces and
+  permissions is granted.
+- **AUTHZ-3** `GET` requires `read` on the requested workspace. `PUT` requires
+  `write` on it. A `"*"` workspace entry matches every workspace in the
+  configured set (03, WS-2).
 - **AUTHZ-4** Under decision D-9, every rule grants `["read", "write"]` for now.
   The model still keeps read and write separate, so they can be split later
   (for example, developers read-only) without a redesign.
@@ -157,7 +166,7 @@ required:
 
 | ID | Question |
 |---|---|
-| AQ-1 | Which accounts and roles are allowed (the rule list)? |
+| AQ-1 | The actual rule values: account IDs, role names or patterns, and their workspaces. (The form is decided: D-11, named roles.) |
 | AQ-2 | Default and maximum token lifetime (depends on Q-10: longest Nx command). |
-| AQ-3 | Are IAM users (long-lived access keys) allowed, or only roles? |
+| AQ-3 | ~~Are IAM users allowed?~~ Answered: no, roles only (D-11). |
 | AQ-4 | Audience value and STS region per environment. |
