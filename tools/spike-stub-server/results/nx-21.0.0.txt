@@ -1,0 +1,42 @@
+### nx 21.0.0
+CQ-3/CQ-6 server=/workspace-a :: exit=0 :: GET /workspace-a/v1/cache/<698592460265286962> auth=Bearer t1 body=0 | PUT /workspace-a/v1/cache/<698592460265286962> auth=Bearer t1 body=1465
+CQ-3/CQ-6 server=/workspace-a/ :: exit=0 :: GET /workspace-a//v1/cache/<12970974692655342355> auth=Bearer t1 body=0 | PUT /workspace-a//v1/cache/<12970974692655342355> auth=Bearer t1 body=1472
+CQ-1/CQ-5 get 200-garbage ::  NX   Failed to read entry from tarball exit=1
+CQ-1/CQ-5 get 204 ::  NX   Misconfigured remote cache endpoint: Unexpected response status: 204 No Content exit=1
+CQ-1/CQ-5 get 400 ::  NX   Misconfigured remote cache endpoint: Unexpected response status: 400 Bad Request exit=1
+CQ-1/CQ-5 get 401 ::  NX   Unauthorized: message from stub exit=1
+CQ-1/CQ-5 get 403 ::  NX   Misconfigured remote cache endpoint: Unexpected response status: 403 Forbidden exit=1
+CQ-1/CQ-5 get 409 ::  NX   Misconfigured remote cache endpoint: Unexpected response status: 409 Conflict exit=1
+CQ-1/CQ-5 get 429 ::  NX   Misconfigured remote cache endpoint: Unexpected response status: 429 Too Many Requests exit=1
+CQ-1/CQ-5 get 500 ::  NX   Misconfigured remote cache endpoint: Unexpected response status: 500 Internal Server Error exit=1
+CQ-1/CQ-5 get 503 ::  NX   Misconfigured remote cache endpoint: Unexpected response status: 503 Service Unavailable exit=1
+CQ-1/CQ-5 get 504 ::  NX   Misconfigured remote cache endpoint: Unexpected response status: 504 Gateway Timeout exit=1
+CQ-1/CQ-5 put 201 ::  NX   Misconfigured remote cache endpoint: Unexpected response status: 201 Created exit=1
+CQ-1/CQ-5 put 204 ::  NX   Misconfigured remote cache endpoint: Unexpected response status: 204 No Content exit=1
+CQ-1/CQ-5 put 400 ::  NX   Misconfigured remote cache endpoint: Unexpected response status: 400 Bad Request exit=1
+CQ-1/CQ-5 put 401 ::  NX   Unauthorized: message from stub exit=1
+CQ-1/CQ-5 put 403 :: exit=0
+CQ-1/CQ-5 put 404 ::  NX   Misconfigured remote cache endpoint: Unexpected response status: 404 Not Found exit=1
+CQ-1/CQ-5 put 409 :: exit=0
+CQ-1/CQ-5 put 411 ::  NX   Misconfigured remote cache endpoint: Unexpected response status: 411 Length Required exit=1
+CQ-1/CQ-5 put 413 ::  NX   Misconfigured remote cache endpoint: Unexpected response status: 413 Payload Too Large exit=1
+CQ-1/CQ-5 put 429 ::  NX   Misconfigured remote cache endpoint: Unexpected response status: 429 Too Many Requests exit=1
+CQ-1/CQ-5 put 500 ::  NX   Misconfigured remote cache endpoint: Unexpected response status: 500 Internal Server Error exit=1
+CQ-1/CQ-5 put 503 ::  NX   Misconfigured remote cache endpoint: Unexpected response status: 503 Service Unavailable exit=1
+CQ-5 connection refused ::  NX   Failed to send request: error sending request for url (http://127.0.0.1:4599/ws/v1/cache/13526771687001646466) exit=1
+CQ-7 GET answered after 35 s :: exit=0 after 36 s
+CQ-2 get 307 same-origin :: exit=0 :: primary: GET /ws/v1/cache/<13431413082642665145> auth=Bearer t1 body=0 | GET /__redirected/ws/v1/cache/<13431413082642665145> auth=Bearer t1 body=0 | PUT /ws/v1/cache/<13431413082642665145> auth=Bearer t1 body=1464 :: secondary: (none)
+CQ-2 get 308 same-origin :: exit=0 :: primary: GET /ws/v1/cache/<12061433321876044590> auth=Bearer t1 body=0 | GET /__redirected/ws/v1/cache/<12061433321876044590> auth=Bearer t1 body=0 | PUT /ws/v1/cache/<12061433321876044590> auth=Bearer t1 body=1464 :: secondary: (none)
+CQ-2 put 307 same-origin :: exit=0 :: primary: GET /ws/v1/cache/<9137611814250034911> auth=Bearer t1 body=0 | PUT /ws/v1/cache/<9137611814250034911> auth=Bearer t1 body=1465 | PUT /__redirected/ws/v1/cache/<9137611814250034911> auth=Bearer t1 body=1465 :: secondary: (none)
+CQ-2 put 308 same-origin :: exit=0 :: primary: GET /ws/v1/cache/<1585685257536150431> auth=Bearer t1 body=0 | PUT /ws/v1/cache/<1585685257536150431> auth=Bearer t1 body=1467 | PUT /__redirected/ws/v1/cache/<1585685257536150431> auth=Bearer t1 body=1467 :: secondary: (none)
+CQ-2 get 307 cross-origin :: exit=0 :: primary: GET /ws/v1/cache/<643639831655955253> auth=Bearer t1 body=0 | PUT /ws/v1/cache/<643639831655955253> auth=Bearer t1 body=1471 :: secondary: GET /__redirected/ws/v1/cache/<643639831655955253> auth=- body=0
+CQ-2 get 308 cross-origin :: exit=0 :: primary: GET /ws/v1/cache/<5699879754278936597> auth=Bearer t1 body=0 | PUT /ws/v1/cache/<5699879754278936597> auth=Bearer t1 body=1465 :: secondary: GET /__redirected/ws/v1/cache/<5699879754278936597> auth=- body=0
+CQ-2 put 307 cross-origin :: exit=0 :: primary: GET /ws/v1/cache/<9715820281380366056> auth=Bearer t1 body=0 | PUT /ws/v1/cache/<9715820281380366056> auth=Bearer t1 body=1471 :: secondary: PUT /__redirected/ws/v1/cache/<9715820281380366056> auth=- body=1471
+CQ-2 put 308 cross-origin :: exit=0 :: primary: GET /ws/v1/cache/<4863041176358743679> auth=Bearer t1 body=0 | PUT /ws/v1/cache/<4863041176358743679> auth=Bearer t1 body=1466 :: secondary: PUT /__redirected/ws/v1/cache/<4863041176358743679> auth=- body=1466
+PC-5/CQ-8/CQ-10 daemon=false isolation=false :: exit=0 :: GET /shell/v1/cache/<6132303244212259894> auth=Bearer shell-token body=0 | PUT /shell/v1/cache/<6132303244212259894> auth=Bearer shell-token body=1465
+PC-5/CQ-8/CQ-10 daemon=false isolation=true :: exit=0 :: GET /shell/v1/cache/<10945637909265936767> auth=Bearer shell-token body=0 | PUT /shell/v1/cache/<10945637909265936767> auth=Bearer shell-token body=1469
+PC-5/CQ-8/CQ-10 daemon=true isolation=false :: exit=0 :: GET /daemon-start/v1/cache/<7070863416492973296> auth=Bearer daemon-start-token body=0 | PUT /daemon-start/v1/cache/<7070863416492973296> auth=Bearer daemon-start-token body=1468
+PC-5/CQ-8/CQ-10 daemon=true isolation=true :: exit=0 :: GET /daemon-start/v1/cache/<2708586394813241102> auth=Bearer daemon-start-token body=0 | PUT /daemon-start/v1/cache/<2708586394813241102> auth=Bearer daemon-start-token body=1468
+CQ-9 hook sets server to '' daemon=false :: exit=0 :: (none)
+CQ-9 hook sets server to '' daemon=true :: exit=0 :: (none)
+CQ-4 token changed 1.5 s into the run ::  NX   Running targets build, slow for project a: exit=0 :: GET /ws/v1/cache/<5294775876955006292> auth=Bearer first-token body=0 | PUT /ws/v1/cache/<5294775876955006292> auth=Bearer first-token body=289 | GET /ws/v1/cache/<7851852316804451189> auth=Bearer first-token body=0 | PUT /ws/v1/cache/<7851852316804451189> auth=Bearer first-token body=1469

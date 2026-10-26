@@ -1,0 +1,8 @@
+{
+  "$schema": "./node_modules/nx/schemas/nx-schema.json",
+  "plugins": ["./tools/spike-plugin.cjs"],
+  "targetDefaults": {
+    "build": { "cache": true, "outputs": ["{projectRoot}/dist"] },
+    "slow": { "cache": true, "outputs": ["{projectRoot}/dist-slow"] }
+  }
+}
