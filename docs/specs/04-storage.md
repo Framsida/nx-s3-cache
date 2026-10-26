@@ -74,5 +74,4 @@ Upload time is the object's `LastModified`.
   every object still stored can be traced to its writer.
 - **AUD-3** Purge procedure: a CloudWatch Logs Insights query over AUD-1 lines
   lists the keys written by a given principal or session. The break-glass role
-  then deletes them. Tooling and runbook to be specified with operations (spec
-  to be written).
+  then deletes them. Runbook in [09](./09-operations.md), OPS-1.

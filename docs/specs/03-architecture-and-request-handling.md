@@ -195,7 +195,7 @@ internal detail (01, CON-7).
   token.
 - **SIZE-2** Uploads whose `Content-Length` is over the limit, but small enough to
   reach the Lambda, get `413` from step 3, before authentication. The handler
-  emits a `RejectedOversize` metric with the declared size (07, to be written).
+  emits a `RejectedOversize` metric with the declared size (07, MET-1).
 - **SIZE-3** Uploads too large for the Lambda event never reach the handler. The
   gateway response (APIGW-5) supplies the message. SPIKE-2 MUST record the exact
   status code and body that Nx shows in that case. A metric filter on the access
