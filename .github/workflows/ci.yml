@@ -1,0 +1,66 @@
+# Offline checks on every pull request (10, DEL-2). No AWS credentials, and
+# nothing here runs terraform plan or apply against AWS (D-30).
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NX_DAEMON: 'false'
+  NX_NO_CLOUD: 'true'
+
+jobs:
+  typescript:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm prettier --check .
+      - run: pnpm nx run-many -t lint typecheck test build --projects=token-format,cache-handler,nx-s3-serverless-cache,e2e
+      - run: pnpm nx run cache-handler:package
+      - name: Package is reproducible (10, PKGL-2)
+        run: |
+          sha256sum dist/apps/cache-handler/lambda.zip | tee first.sha
+          rm -rf dist
+          pnpm nx run cache-handler:package --skip-nx-cache
+          sha256sum -c first.sha
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lambda-zip
+          path: dist/apps/cache-handler/lambda.zip
+
+  terraform:
+    runs-on: ubuntu-latest
+    env:
+      TF_PLUGIN_CACHE_DIR: ${{ github.workspace }}/.terraform-plugins
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: mkdir -p "$TF_PLUGIN_CACHE_DIR"
+      # terraform test with override_during needs 1.11 or newer.
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.17.0
+          terraform_wrapper: false
+      - uses: terraform-linters/setup-tflint@v4
+      # TF-11 and TF-12.
+      - run: pnpm nx run-many -t fmt-check validate tflint tf-test --projects=terraform

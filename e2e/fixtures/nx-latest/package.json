@@ -1,0 +1,7 @@
+{
+  "name": "e2e-fixture-nx-latest",
+  "private": true,
+  "devDependencies": {
+    "nx": "latest"
+  }
+}

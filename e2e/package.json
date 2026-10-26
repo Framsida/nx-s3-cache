@@ -1,0 +1,7 @@
+{
+  "name": "@nx-s3-serverless-cache/e2e",
+  "version": "0.0.0",
+  "private": true,
+  "description": "End-to-end suite against an existing deployment (08 §5)",
+  "type": "module"
+}

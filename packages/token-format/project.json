@@ -1,0 +1,16 @@
+{
+  "name": "token-format",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/token-format/src",
+  "projectType": "library",
+  "targets": {
+    "lint": { "command": "eslint .", "options": { "cwd": "{projectRoot}" } },
+    "typecheck": { "command": "tsc -p tsconfig.json", "options": { "cwd": "{projectRoot}" } },
+    "test": { "command": "vitest run", "options": { "cwd": "{projectRoot}" } },
+    "build": {
+      "command": "tsc -p tsconfig.lib.json",
+      "options": { "cwd": "{projectRoot}" },
+      "outputs": ["{workspaceRoot}/dist/packages/token-format"]
+    }
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "name": "nx-s3-serverless-cache-workspace",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Self-hosted Nx remote cache on AWS Lambda, S3 and IAM",
+  "license": "MIT",
+  "type": "module",
+  "packageManager": "pnpm@10.34.9",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "lint": "nx run-many -t lint",
+    "typecheck": "nx run-many -t typecheck",
+    "test": "nx run-many -t test",
+    "build": "nx run-many -t build",
+    "package": "nx run cache-handler:package",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.10.1",
+    "@vitest/coverage-v8": "4.1.12",
+    "esbuild": "0.28.2",
+    "eslint": "^10.13.0",
+    "globals": "^17.13.0",
+    "nx": "24.0.1",
+    "prettier": "^3.9.10",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.72.0",
+    "vitest": "4.1.12"
+  }
+}

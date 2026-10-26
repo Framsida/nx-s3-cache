@@ -1,0 +1,34 @@
+{
+  "name": "nx-s3-serverless-cache",
+  "version": "0.0.0",
+  "description": "Nx plugin and CLI that connect a workspace to an nx-s3-serverless-cache deployment with AWS IAM credentials",
+  "license": "MIT",
+  "keywords": [
+    "nx",
+    "nx-plugin",
+    "remote-cache",
+    "aws",
+    "s3",
+    "lambda"
+  ],
+  "type": "commonjs",
+  "main": "./dist/index.js",
+  "bin": {
+    "nx-s3-serverless-cache": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "@aws-sdk/credential-provider-node": "^3.972.88",
+    "@smithy/signature-v4": "^5.7.4"
+  },
+  "devDependencies": {
+    "@nx-s3-serverless-cache/token-format": "workspace:*",
+    "@smithy/types": "^4.19.0"
+  }
+}

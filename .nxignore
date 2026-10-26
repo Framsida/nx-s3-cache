@@ -1,0 +1,3 @@
+# Separate Nx workspaces used as test fixtures, not projects of this workspace
+e2e/fixtures/
+tools/spike-stub-server/fixture/

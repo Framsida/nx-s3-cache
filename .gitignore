@@ -1,0 +1,20 @@
+node_modules/
+dist/
+coverage/
+.nx/
+*.tsbuildinfo
+.vitest/
+
+# Terraform: this repository never holds state or real variable values (06, TF-1)
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+crash.log
+.terraform.tfstate.lock.info
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraform.lock.hcl

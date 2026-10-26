@@ -1,0 +1,16 @@
+{
+  "name": "nx-s3-serverless-cache",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/nx-s3-serverless-cache/src",
+  "projectType": "library",
+  "targets": {
+    "lint": { "command": "eslint .", "options": { "cwd": "{projectRoot}" } },
+    "typecheck": { "command": "tsc -p tsconfig.json", "options": { "cwd": "{projectRoot}" } },
+    "test": { "command": "vitest run", "options": { "cwd": "{projectRoot}" } },
+    "build": {
+      "command": "node scripts/build.mjs",
+      "options": { "cwd": "{projectRoot}" },
+      "outputs": ["{projectRoot}/dist"]
+    }
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "name": "terraform",
+  "$schema": "../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "targets": {
+    "fmt-check": {
+      "command": "terraform fmt -check -recursive terraform examples",
+      "options": { "cwd": "{workspaceRoot}" },
+      "cache": true,
+      "inputs": ["{projectRoot}/**/*", "{workspaceRoot}/examples/**/*"]
+    },
+    "validate": {
+      "command": "for d in terraform examples/basic; do terraform -chdir=$d init -backend=false -input=false -no-color >/dev/null && terraform -chdir=$d validate -no-color || exit 1; done",
+      "options": { "cwd": "{workspaceRoot}" },
+      "cache": true,
+      "inputs": ["{projectRoot}/**/*", "{workspaceRoot}/examples/**/*"]
+    },
+    "tflint": {
+      "command": "for d in terraform examples/basic; do tflint --chdir=$d --init >/dev/null && tflint --chdir=$d --format compact || exit 1; done",
+      "options": { "cwd": "{workspaceRoot}" },
+      "cache": true,
+      "inputs": ["{projectRoot}/**/*", "{workspaceRoot}/examples/**/*"]
+    },
+    "tf-test": {
+      "command": "terraform -chdir=terraform init -backend=false -input=false -no-color >/dev/null && terraform -chdir=terraform test -no-color",
+      "options": { "cwd": "{workspaceRoot}" },
+      "cache": true,
+      "inputs": ["{projectRoot}/**/*"]
+    }
+  }
+}

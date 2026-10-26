@@ -1,0 +1,24 @@
+{
+  "$schema": "./node_modules/nx/schemas/nx-schema.json",
+  "namedInputs": {
+    "default": ["{projectRoot}/**/*", "sharedGlobals"],
+    "sharedGlobals": [
+      "{workspaceRoot}/tsconfig.base.json",
+      "{workspaceRoot}/eslint.config.mjs",
+      "{workspaceRoot}/pnpm-lock.yaml"
+    ],
+    "production": ["default", "!{projectRoot}/**/*.test.ts", "!{projectRoot}/test/**/*"]
+  },
+  "targetDefaults": {
+    "lint": { "cache": true, "inputs": ["default"] },
+    "typecheck": { "cache": true, "inputs": ["default", "^production"] },
+    "test": { "cache": true, "inputs": ["default", "^production"] },
+    "build": {
+      "cache": true,
+      "dependsOn": ["^build"],
+      "inputs": ["production", "^production"]
+    }
+  },
+  "defaultBase": "main",
+  "neverConnectToCloud": true
+}

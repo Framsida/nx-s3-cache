@@ -1,0 +1,12 @@
+# Copy to <environment>.tfvars in your own repository. Real values never go
+# into this repository (06, TF-1).
+region           = "eu-west-1"
+environment      = "dev"
+domain_name      = "nx-cache-dev.example.com"
+hosted_zone_name = "example.com"
+allowed_role_arns = [
+  "arn:aws:iam::111111111111:role/ci-runner",
+  "arn:aws:iam::111111111111:role/aws-reserved/sso.amazonaws.com/eu-west-1/AWSReservedSSO_Developer_0123456789abcdef",
+]
+alarm_emails        = ["platform-team@example.com"]
+lambda_package_path = "../nx-s3-serverless-cache/dist/apps/cache-handler/lambda.zip"

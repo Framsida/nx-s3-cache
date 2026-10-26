@@ -1,0 +1,33 @@
+{
+  "name": "cache-handler",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/cache-handler/src",
+  "projectType": "application",
+  "targets": {
+    "lint": { "command": "eslint .", "options": { "cwd": "{projectRoot}" } },
+    "typecheck": { "command": "tsc -p tsconfig.json", "options": { "cwd": "{projectRoot}" } },
+    "test": { "command": "vitest run", "options": { "cwd": "{projectRoot}" } },
+    "build": {
+      "command": "node scripts/build.mjs",
+      "options": { "cwd": "{projectRoot}" },
+      "inputs": [
+        "production",
+        "^production",
+        { "runtime": "git describe --tags --always 2>/dev/null || echo none" },
+        { "env": "RELEASE_VERSION" }
+      ],
+      "outputs": [
+        "{workspaceRoot}/dist/apps/cache-handler/index.mjs",
+        "{workspaceRoot}/dist/apps/cache-handler/index.mjs.map"
+      ]
+    },
+    "package": {
+      "command": "node ../../tools/scripts/reproducible-zip.mjs ../../dist/apps/cache-handler/lambda.zip ../../dist/apps/cache-handler index.mjs index.mjs.map",
+      "options": { "cwd": "{projectRoot}" },
+      "dependsOn": ["build"],
+      "cache": true,
+      "inputs": ["{workspaceRoot}/tools/scripts/reproducible-zip.mjs"],
+      "outputs": ["{workspaceRoot}/dist/apps/cache-handler/lambda.zip"]
+    }
+  }
+}

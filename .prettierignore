@@ -1,0 +1,10 @@
+dist/
+coverage/
+.nx/
+pnpm-lock.yaml
+docs/specs/nx-remote-cache.openapi.json
+**/.terraform/
+*.tf
+*.tftest.hcl
+docs/specs/
+tools/spike-stub-server/results/

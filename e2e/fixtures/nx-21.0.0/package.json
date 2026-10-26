@@ -1,0 +1,7 @@
+{
+  "name": "e2e-fixture-nx-21-0-0",
+  "private": true,
+  "devDependencies": {
+    "nx": "21.0.0"
+  }
+}

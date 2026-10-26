@@ -1,0 +1,12 @@
+{
+  "name": "@nx-s3-serverless-cache/token-format",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Shared constants and types for the nxcache-v1 token and the cache's wire format",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

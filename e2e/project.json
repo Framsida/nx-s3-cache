@@ -1,0 +1,15 @@
+{
+  "name": "e2e",
+  "$schema": "../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "targets": {
+    "lint": { "command": "eslint .", "options": { "cwd": "{projectRoot}" } },
+    "typecheck": { "command": "tsc -p tsconfig.json", "options": { "cwd": "{projectRoot}" } },
+    "e2e": {
+      "command": "vitest run",
+      "options": { "cwd": "{projectRoot}" },
+      "dependsOn": [{ "projects": ["nx-s3-serverless-cache"], "target": "build" }],
+      "cache": false
+    }
+  }
+}
