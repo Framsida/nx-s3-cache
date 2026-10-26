@@ -62,8 +62,8 @@ https://sts.<region>.amazonaws.com/?Action=GetCallerIdentity&Version=2011-06-15
   of the region the server is configured with. The global endpoint is not used.
 - **TOK-3 Lifetime.** The client sets `X-Amz-Expires`. STS also rejects the
   request once the temporary credentials behind it expire, so the effective
-  lifetime is the lower of the two. Default and maximum lifetime: open question
-  AQ-2.
+  lifetime is the lower of the two. Default and maximum lifetime are both
+  3600 s (05, section 5).
 - **TOK-4 Size.** Tokens are typically 2–4 KB because of the session token. The
   server MUST reject tokens over 8 KB.
 
@@ -167,6 +167,6 @@ required:
 | ID | Question |
 |---|---|
 | AQ-1 | The actual rule values: account IDs, role names or patterns, and their workspaces. (The form is decided: D-11, named roles.) |
-| AQ-2 | Default and maximum token lifetime (depends on Q-10: longest Nx command). |
+| AQ-2 | ~~Default and maximum token lifetime?~~ Answered: 3600 s for both (D-21, see 05 section 5). |
 | AQ-3 | ~~Are IAM users allowed?~~ Answered: no, roles only (D-11). |
 | AQ-4 | Audience value and STS region per environment. |

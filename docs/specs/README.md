@@ -28,6 +28,10 @@ IAM. These documents are what the implementation is built and tested against.
 | D-16 | Several Nx workspaces, each isolated with its own key prefix and its own access rules. | Q-6 |
 | D-17 | Artifacts expire 14 days after upload. | Q-7 |
 | D-18 | Encryption at rest with SSE-S3. | Q-8 |
+| D-19 | No WAF. Abuse is contained by API Gateway throttling, Lambda reserved concurrency and early token rejection. | Q-15 |
+| D-20 | Two environments, dev and prod, in one AWS account, separated by name prefix. | Q-9 |
+| D-21 | The longest Nx command runs under 1 hour. Token lifetime defaults to 3600 s on both client and server. | Q-10 |
+| D-22 | Consuming workspaces run Nx 21 or newer, with mixed versions. Support 21.0.0 as the floor and test the floor and the latest. | Q-11 |
 
 ## Spec index
 
@@ -37,11 +41,12 @@ IAM. These documents are what the implementation is built and tested against.
 | 02 | [Authentication and authorization](./02-authentication-and-authorization.md) | Draft |
 | 03 | [Architecture and request handling](./03-architecture-and-request-handling.md) | Draft |
 | 04 | [Storage](./04-storage.md) | Draft |
+| 05 | [Client tooling: Nx plugin and token CLI](./05-client-tooling.md) | Draft |
 | — | [OpenAPI document (verbatim from Nx)](./nx-remote-cache.openapi.json) | Reference |
 
-Planned: 05 client tooling (Nx plugin and token CLI), 06 Terraform modules and
-environments, 07 observability, 08 testing and spikes (SPIKE-1, SPIKE-2),
-09 operations (purge, rotation, runbooks).
+Planned: 06 Terraform modules and environments, 07 observability, 08 testing
+and spikes (SPIKE-1, SPIKE-2), 09 operations (purge, runbooks), 10 repository
+layout and delivery.
 
 ## Constraints found in research
 
@@ -82,14 +87,17 @@ environments, 07 observability, 08 testing and spikes (SPIKE-1, SPIKE-2),
 | Q-6 | One Nx workspace or several? | Answered → D-16 |
 | Q-7 | Retention period? | Answered → D-17 |
 | Q-8 | Encryption at rest? | Answered → D-18 |
-| Q-9 | AWS accounts, regions and environments; DNS zone and domain; existing Terraform conventions (state backend, module layout, tagging)? | Open |
-| Q-10 | Longest single Nx command in CI and locally (sets minimum token lifetime)? | Open |
-| Q-11 | Nx versions in the consuming workspaces? | Open |
+| Q-9 | Environments and accounts? | Answered → D-20 |
+| Q-9a | AWS region, domain name, and whether a Route 53 hosted zone for it exists in the account? | Open |
+| Q-9b | Terraform conventions: state backend, module layout, tagging? | Open |
+| Q-10 | Longest single Nx command? | Answered → D-21 |
+| Q-11 | Nx versions in the consuming workspaces? | Answered → D-22 |
 | Q-12 | Observability: logging, metrics (hit rate), tracing, alarms, and where they go? | Open |
 | Q-13 | Repository tooling for this project: package manager, Node.js runtime, test framework, and how it is deployed (CI/CD)? | Open |
 | Q-14 | How do tokens get into the Nx environment? | Answered → D-14 |
-| Q-15 | Is a WAF web ACL attached to the REST API? If so, which rules? | Open |
+| Q-15 | Is a WAF web ACL attached to the REST API? | Answered → D-19 |
 | Q-16 | What sits in front of the Lambda? | Answered → D-15 |
+| Q-17 | npm package name and registry for the client tooling (05, PKG-1)? | Open |
 
 Authentication-specific questions (AQ-1 to AQ-4) are tracked in
 [02](./02-authentication-and-authorization.md#7-open-questions).

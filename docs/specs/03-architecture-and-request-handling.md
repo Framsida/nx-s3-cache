@@ -90,10 +90,11 @@ The key words MUST, MUST NOT, SHOULD and MAY are used as in RFC 2119.
   agent.
 - **APIGW-8** Execution logging with full request and response data MUST be
   off. It would write bearer tokens to the logs.
-- **APIGW-9** Whether a WAF web ACL is attached is open (Q-15). If one is, its
-  rules MUST NOT block binary bodies up to the artifact size limit. For example,
-  the AWS managed rule `SizeRestrictions_BODY` in the core rule set blocks bodies
-  over 8 KB and must be excluded.
+- **APIGW-9** No WAF web ACL (D-19). Abuse is contained by stage throttling
+  (APIGW-6), Lambda reserved concurrency (FN-3) and rejecting malformed tokens
+  before any STS call (02, steps 1–5). If a WAF is added later, its rules MUST
+  NOT block binary bodies up to the artifact size limit. For example, the AWS
+  managed rule `SizeRestrictions_BODY` blocks bodies over 8 KB.
 
 ## 4. Lambda function
 
