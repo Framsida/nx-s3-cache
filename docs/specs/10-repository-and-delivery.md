@@ -17,10 +17,11 @@ packages/
                               # header, allowed query parameters (02 §3)
   nx-s3-serverless-cache/     # Published package: Nx plugin + CLI (05)
 tools/
-  spike-stub-server/          # SPIKE-1 stub server (08 §1)
+  spike-stub-server/          # SPIKE-1 stub server, fixture and results (08 §1)
+  scripts/                    # Reproducible zip (PKGL-2)
 e2e/
-  fixtures/nx-21.0.0/         # Fixture workspaces (08 §5)
-  fixtures/nx-latest/
+  fixtures/nx-21.0.0/         # Fixture workspaces (08 §5): the Nx version only;
+  fixtures/nx-latest/         # the suite writes the rest
   suites/
 terraform/                    # The Terraform module (06)
 examples/
@@ -35,7 +36,7 @@ docs/specs/                   # These specifications
 - **REPO-4** `token-format` holds only constants and types. Token creation lives
   in `nx-s3-serverless-cache` and validation in `cache-handler`, so the server
   bundle carries no client code.
-- **REPO-5** The development Node.js version is 24, pinned with `.nvmrc` or
+- **REPO-5** The development Node.js version is 24, pinned with `.nvmrc` and
   `engines`. The Lambda runtime is `nodejs24.x`. The published client package
   supports Node.js 20 or newer (05, PKG-3) and MUST load as a plugin in Nx
   21.0.0 and the latest Nx (checked by E2E-1).
@@ -50,7 +51,7 @@ docs/specs/                   # These specifications
 | `cache-handler` | `lint`, `typecheck`, `test`, `build` (esbuild bundle), `package` (zip) |
 | `token-format` | `lint`, `typecheck`, `test`, `build` |
 | `nx-s3-serverless-cache` | `lint`, `typecheck`, `test`, `build` |
-| `e2e` | `e2e` (needs an existing deployment and AWS credentials; see 08, E2E-2) |
+| `e2e` | `lint`, `typecheck`, `e2e` (needs an existing deployment and AWS credentials; see 08, E2E-2) |
 | `terraform` | `fmt-check`, `validate`, `tflint`, `tf-test` (all offline, 06 section 6) |
 
 ## 3. Lambda package (built from source, D-31)
@@ -58,7 +59,12 @@ docs/specs/                   # These specifications
 - **PKGL-1** `pnpm nx run cache-handler:package` writes
   `dist/apps/cache-handler/lambda.zip`, containing one bundled `index.mjs` and
   its source map.
-- **PKGL-2** The zip is reproducible: fixed file order and timestamps. The same
+- **PKGL-6** The client package is bundled the same way, as CommonJS for
+  Node.js 20: `token-format` is inlined, because it is not published, and the
+  AWS SDK packages stay runtime dependencies (05, PKG-4).
+- **PKGL-2** The zip is reproducible: fixed file order and timestamps, and
+  entries stored uncompressed so the bytes do not depend on the zlib version.
+  CI builds it twice and compares the hashes. The same
   tag gives the same `source_code_hash`, so `terraform plan` shows no change to
   the function unless the code changed.
 - **PKGL-3** The AWS SDK v3 clients are bundled at a pinned version, not taken

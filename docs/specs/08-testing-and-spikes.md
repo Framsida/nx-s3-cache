@@ -12,6 +12,9 @@ The key words MUST, MUST NOT, SHOULD and MAY are used as in RFC 2119.
 
 ### SPIKE-1 — Nx client behaviour
 
+**Done.** Tool and results: [`tools/spike-stub-server`](../../tools/spike-stub-server/README.md).
+Answers are in 01 §5 and 05 §6, and led to D-34 to D-38.
+
 A throwaway stub HTTP server, written in TypeScript, logs every request and
 returns scripted responses. Real Nx workspaces run against it, on Nx 21.0.0 and
 on the latest Nx.
@@ -33,7 +36,16 @@ section 5.
   size limit (03, APIGW-4).
 - **SP2-2** Every gateway response in 03 APIGW-5 reaches Nx as `text/plain`.
 - **SP2-3** The status and message Nx shows for a body above the Lambda event
-  limit (03, SIZE-3).
+  limit (03, SIZE-3): with the size gate (D-36), a `403` for 4.5 to 10 MB and
+  for bodies over 10 MB.
+- **SP2-4** A `Content-Length` header reaches the handler in the proxy event:
+  any successful `PUT` shows it.
+- **SP2-5** The handler's log lines appear in CloudWatch as top-level JSON, not
+  wrapped in `message`, and the `NxCache` metrics are extracted from them
+  (07, LOG-1).
+
+SP2-1 to SP2-4 are automated in `e2e/suites/deployment.e2e.test.ts`; SP2-5 is
+checked by hand after a run.
 
 ## 2. Unit tests (Vitest)
 
@@ -49,7 +61,9 @@ section 5.
   table 5.1. Allowed-role matching (02, AUTHZ-2): configured ARNs with and
   without IAM paths, role-name case differences, the same role name in two
   accounts where only one is listed, and no match. Rejection of invalid
-  configured ARNs (AUTHZ-5).
+  configured ARNs (AUTHZ-5). Terraform reduces configured ARNs to
+  `<account>:<role name>`, so that part, and the ARN validation, are tested in
+  `terraform/tests` (TF-12).
 - **UT-3 Request handling.** Every row of 03 table 5.1 and every status in table
   5.4. Path traversal attempts in `workspace` and `hash` (`..`, `%2F`, encoded
   Unicode, empty segments).
@@ -84,16 +98,21 @@ section 5.
   plugin installed:
   1. A build with an allowed role stores outputs.
   2. After clearing the local cache, the same build is a remote cache hit.
-  3. A role that is not on the allowed list gets `403`. The build still passes.
+  3. A role that is not on the allowed list is refused (a miss and a skipped
+     upload, D-34). The build still passes.
   4. One allowed role reads and writes two workspaces, and their artifacts stay
      under separate prefixes.
-  5. An artifact over the size limit gets `413`. The build still passes.
+  5. An artifact over the size limit is not stored (`403`). The build still
+     passes.
   6. With no AWS credentials, the plugin warns and the build passes on the
      local cache.
 - **E2E-2** The suite runs against a deployment given by environment variables
   (URL, region, audience), with two AWS profiles: one for a listed role and one
   for an unlisted role. Nothing in this repository creates the deployment or the
-  roles (D-30). Maintainers run it by hand before a release.
+  roles (D-30). Maintainers run it by hand before a release
+  ([`e2e/README.md`](../../e2e/README.md)). The suite was also run against a
+  local stand-in: the real handler behind an HTTP adapter that mimics API
+  Gateway's limits and the size gate, with a fake STS and an in-memory S3.
 
 ## 6. Infrastructure tests
 

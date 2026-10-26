@@ -84,6 +84,12 @@ run without a network call.
 | 7 | Parse `GetCallerIdentityResponse.GetCallerIdentityResult` → `Account`, `Arn`, `UserId` | 503 |
 | 8 | Normalize the identity and check it against the allowed roles (section 5) | 403 |
 
+The statuses above classify the failure. What Nx receives follows D-34: a miss
+on `GET` and a skipped upload on `PUT`, with the outcome `unauthenticated`
+(401), `upstream_error` (503) or `forbidden` (403) in the `x-nx-cache-outcome`
+header (03, 5.4). STS throttling arrives as a `400` with the code `Throttling`;
+it says nothing about the token, so it counts as a 503.
+
 - **VAL-1** Step 2 is the guard against server-side request forgery. The server
   MUST NOT send the token's URL anywhere other than the deployment region's STS
   host.
@@ -93,8 +99,8 @@ run without a network call.
   keyed by the SHA-256 of the token, for at most 5 minutes and never past the
   token's expiry. Failed results MUST NOT be cached.
 - **VAL-4 Fail closed.** If STS is unreachable, the request fails (503). It is
-  never allowed through. Nx then continues without the remote cache (to be
-  confirmed by CQ-5).
+  never allowed through. Nx then continues without the remote cache, because
+  the answer is a miss or a skipped upload (D-34; 01, CQ-5).
 
 ## 5. Identity normalization and authorization
 

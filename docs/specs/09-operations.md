@@ -48,10 +48,11 @@ and check the lower one first.
   them. Consumers rebuild those tasks on the next miss.
 - **OPS-2 Purge a whole workspace.** An admin role deletes the prefix
   `v1/<workspace>/`.
-- **OPS-3 Kill switch.** Set `lambda_reserved_concurrency` to 0 and apply (or set
-  it directly on the function in an emergency). Every request then fails. How Nx
-  behaves in that case is confirmed by SPIKE-1 (01, CQ-5). Individual users can
-  opt out with `NX_S3_SERVERLESS_CACHE_DISABLED=true` (05).
-- **OPS-4 Alarms.** Each alarm in 07 section 4 gets a runbook entry in the
-  deployer guide: what it means, the first checks (dashboard, handler `ERROR`
-  logs, AWS Health), and likely fixes.
+- **OPS-3 Kill switch.** Set `cache_enabled = false` and apply (D-35). Every
+  request then becomes a miss or a skipped upload, and no Nx command fails.
+  Reserved concurrency `0` is not a kill switch: Nx fails every command when its
+  requests fail (01, CQ-5). Individual users can opt out with
+  `NX_S3_SERVERLESS_CACHE_DISABLED=true` (05).
+- **OPS-4 Alarms.** Each alarm in 07 section 4 has a runbook entry in the
+  deployer guide ([README](../../README.md#alarm-runbook)): what it means, the
+  first checks (dashboard, handler `ERROR` logs, AWS Health), and likely fixes.

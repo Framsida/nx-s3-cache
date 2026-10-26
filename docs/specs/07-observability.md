@@ -10,14 +10,17 @@ The key words MUST, MUST NOT, SHOULD and MAY are used as in RFC 2119.
 
 ## 1. Logs
 
-- **LOG-1** The handler writes one structured JSON line per request, using
-  Lambda's JSON log format, at level `INFO`.
+- **LOG-1** The handler writes one structured JSON line per request, at level
+  `INFO`. The function uses Lambda's JSON log format; the handler writes its
+  lines straight to stdout, already JSON, so they are not wrapped, and each
+  line also carries the request's EMF metrics (MET-1). A request the size gate
+  denies is logged by the gate instead (03, APIGW-10).
 
   | Field | Notes |
   |---|---|
   | `requestId`, `apiRequestId` | Lambda and API Gateway request IDs |
   | `method`, `workspace`, `hash` | |
-  | `outcome` | `hit`, `miss`, `stored`, `exists`, `oversize`, `bad_request`, `unauthenticated`, `forbidden`, `upstream_error` |
+  | `outcome` | `hit`, `miss`, `stored`, `exists`, `oversize`, `bad_request`, `unauthenticated`, `forbidden`, `upstream_error`, `internal_error`, `disabled`. Also sent to the client in the `x-nx-cache-outcome` header (D-34). |
   | `status` | HTTP status returned |
   | `bytes` | Artifact size for `hit` and `stored` |
   | `durationMs`, `stsMs`, `s3Ms` | |
@@ -26,6 +29,8 @@ The key words MUST, MUST NOT, SHOULD and MAY are used as in RFC 2119.
   | `authCache` | `hit` or `miss` (02, VAL-3) |
   | `sourceIp`, `userAgent` | From the API Gateway request context |
   | `errorCode`, `awsRequestId` | For `upstream_error`: S3 or STS error code and request ID |
+| `upstream` | `sts` or `s3`, for `upstream_error` |
+| `reason` | Why a request was rejected, in words |
 
 - **LOG-2** Logs MUST NOT contain tokens, credentials, request bodies or
   response bodies.
@@ -40,21 +45,25 @@ The key words MUST, MUST NOT, SHOULD and MAY are used as in RFC 2119.
 Emitted by the handler in CloudWatch Embedded Metric Format. No extra API calls.
 
 - **MET-1** Namespace `NxCache`, dimensions `Environment` and `Workspace`, plus
-  `Environment` alone for totals. (Workspace count is small, so cardinality is
-  bounded.)
+  `Environment` alone for totals. The `Workspace` dimension is only emitted once
+  the caller is an allowed role. Workspace IDs are not registered (WS-2), so
+  otherwise anyone could create metric series by inventing workspaces.
 
   | Metric | Unit | When |
   |---|---|---|
   | `CacheHit`, `CacheMiss` | Count | `GET` 200 / 404 |
   | `Stored`, `AlreadyExists` | Count | `PUT` 200 / 409 |
-  | `RejectedOversize` | Count | `PUT` 413 from the handler |
+  | `RejectedOversize` | Count | `PUT` rejected as too large by the handler or the size gate |
   | `Unauthenticated`, `Forbidden` | Count | 401 / 403 |
-  | `UpstreamError` | Count | 503, with an extra `Upstream` dimension (`sts` or `s3`) |
+  | `UpstreamError` | Count | STS or S3 failed, with an extra `Upstream` dimension (`sts` or `s3`) |
+| `InternalError` | Count | The handler caught an unexpected error |
   | `ArtifactBytes` | Bytes | Size on `hit` and `stored`, and declared size on `oversize` |
   | `StsLatency`, `S3Latency` | Milliseconds | Per call |
 
-- **MET-2** Log metric filters on the API Gateway access logs count `413` and
-  `5xx` responses that never reached the handler (03, SIZE-3).
+- **MET-2** Log metric filters on the API Gateway access logs count responses
+  that never reached the handler: `GatewayRejectedOversize` (body over the
+  gateway limit, 03 SIZE-3), `GatewayThrottled` (`429`) and `Gateway5xx`, with
+  an `Environment` dimension taken from the log line.
 - **MET-3** Hit rate is `CacheHit / (CacheHit + CacheMiss)`, computed with
   metric math on the dashboard. It is not emitted.
 
@@ -84,6 +93,7 @@ notification. Thresholds are Terraform inputs; the defaults are below.
 | Lambda throttles | `Throttles` > 0 in a five-minute period (reserved concurrency reached) |
 | STS failures | `UpstreamError{Upstream=sts}` > 10 in five minutes |
 | S3 failures | `UpstreamError{Upstream=s3}` > 10 in five minutes |
+| Handler internal errors | `InternalError` > 0 in five minutes |
 | Missing data | Missing data is treated as not breaching (quiet periods are normal) |
 
 - **ALM-1** When `alarms_enabled = false` (for example, in a dev instance), the

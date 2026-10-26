@@ -6,7 +6,10 @@ IAM. This repository ships the code, a Terraform module and an Nx plugin.
 Deployers build and apply it from their own repositories. These documents are
 what the implementation is built and tested against.
 
-**Phase:** discovery and planning. No implementation code yet.
+**Phase:** implementation. SPIKE-1 is done and its results are recorded below
+and in 01, 03 and 05. The code, the Terraform module and the offline tests are
+in place. SPIKE-2 and the end-to-end suite wait for a test deployment (step 6
+of the build order).
 
 ## Decisions
 
@@ -25,7 +28,7 @@ Superseded decisions are kept, struck through, so the history stays readable.
 | D-9 | Every allowed principal may read and write. Cache poisoning is an accepted risk (R-1 in 02), with required mitigations. | Q-3 |
 | D-10 | Artifact bytes pass through Lambda. No redirect to presigned S3 URLs. | Q-4 |
 | D-11 | ~~Allowed principals are account ID plus role-name pattern.~~ Superseded by D-27. | AQ-1 |
-| D-12 | Uploads over the size limit get a clear `413` and a metric. Nx carries on without remote caching for that task. | Q-4a |
+| D-12 | Uploads over the size limit get a ~~clear `413`~~ `403` with the reason (D-34, D-36) and a metric. Nx carries on without remote caching for that task. | Q-4a |
 | D-13 | Public HTTPS endpoint on a custom domain. The token is the only gate. | Q-5 |
 | D-14 | Tokens are minted automatically by an Nx plugin (`preTasksExecution`), with a matching CLI for scripts and debugging. | Q-14 |
 | D-15 | Front door is an API Gateway REST API with a single Lambda that does authentication and cache logic. | Q-16 |
@@ -47,6 +50,11 @@ Superseded decisions are kept, struck through, so the history stays readable.
 | D-31 | Deployers build the Lambda zip from source at a release tag. | Q-23 |
 | D-32 | The client package (Nx plugin and CLI) is named `nx-s3-serverless-cache`. Registry decided later. | Q-17 |
 | D-33 | Alarms go to whoever deploys the instance: email addresses (`alarm_emails`) or an existing SNS topic (`alarm_sns_topic_arn`). The deployer operates the instance. | Q-19 |
+| D-34 | Nx fails the whole command on any `GET` status but `200` and `404`, and on any `PUT` status but `200`, `403` and `409` (PC-9). The handler therefore answers every request it cannot serve as a miss (`GET` → `404`, no body) or a skipped upload (`PUT` → `403`, `text/plain` reason), and reports the real outcome in the `x-nx-cache-outcome` header, the log line and the metrics. This replaces the `400`, `401`, `403` on `GET`, `411`, `413` and `503` responses of 01 CON-6 and 03 §5.4. | SPIKE-1 |
+| D-35 | The kill switch is the `cache_enabled` input: every request becomes a miss or a skipped upload. Reserved concurrency `0` would fail every Nx command. | SPIKE-1 |
+| D-36 | `PUT` passes a size gate: the same Lambda function runs as a `REQUEST` authorizer on `PUT` only and denies a declared `Content-Length` over the limit, before the body reaches Lambda's 6 MB event. API Gateway responses that only `PUT` can produce (authorizer and body-size errors) are `403`. Without this, outputs of about 4.5 MB or more fail the Nx command with a `5xx`. | SPIKE-1 |
+| D-37 | Hash pattern `^[A-Za-z0-9]{1,128}$` (01, CON-2). Nx sends 1 to 20 decimal digits; letters keep custom task hashers working. | SPIKE-1 (CQ-6) |
+| D-38 | URL-1 is used: the workspace is the first path segment, because Nx keeps the server URL's path (03, URL-2). | SPIKE-1 (CQ-3) |
 
 ## Spec index
 
@@ -63,8 +71,11 @@ Superseded decisions are kept, struck through, so the history stays readable.
 | 09 | [Operations (deployer guide)](./09-operations.md) | Draft |
 | 10 | [Repository layout and delivery](./10-repository-and-delivery.md) | Draft |
 | — | [OpenAPI document (verbatim from Nx)](./nx-remote-cache.openapi.json) | Reference |
+| — | [SPIKE-1 results](../../tools/spike-stub-server/README.md) | Done |
 
 ### Suggested build order
+
+Steps 1 to 5 are done. Step 6 is open.
 
 1. SPIKE-1 (08): settles the URL layout, hash pattern and client error handling.
 2. Repository scaffold (10) and `token-format`.
@@ -94,8 +105,8 @@ Superseded decisions are kept, struck through, so the history stays readable.
 - **PC-5 Token injection hook.** From `nx@20.8.0` through at least `24.0.1`, a
   plugin's `preTasksExecution` hook runs before any task runs. Environment
   variables it sets on `process.env` are copied into the main Nx process, and the
-  remote cache client is created after that. This enables D-14. To be confirmed
-  by SPIKE-1.
+  remote cache client is created after that. This enables D-14. Confirmed by
+  SPIKE-1 on 21.0.0 and 24.0.1; see PC-11 for the daemon.
 - **PC-6 Missing-key status.** Without `s3:ListBucket`, S3 `GetObject` returns
   `403` instead of `404` for a missing key. The handler role needs it (03, FN-6).
 - **PC-7 API Gateway error bodies.** REST API built-in errors are JSON by
@@ -103,6 +114,19 @@ Superseded decisions are kept, struck through, so the history stays readable.
   (03, APIGW-5).
 - **PC-8 Role paths.** STS reports an assumed role's account and name, but not
   its IAM path. Allowed role ARNs are matched on account and name (02, AUTHZ-2).
+- **PC-9 Nx fails commands on unexpected statuses** (SPIKE-1, CQ-5). Only `200`
+  and `404` on `GET`, and `200`, `403` and `409` on `PUT`, let the command
+  succeed. Every other status, a `200` whose body is not a tarball, and a
+  refused connection fail it. Resolved by D-34 and D-36 where the handler or the
+  gateway can choose; failures before the handler (throttling, a crashed
+  Lambda, an outage) still fail Nx commands.
+- **PC-10 No client timeout** (CQ-7). A request that is never answered waits
+  indefinitely; API Gateway's 29 s integration timeout is what bounds it.
+- **PC-11 Daemon environment** (CQ-8). With the daemon on, Nx before 22.7.0 runs
+  `preTasksExecution` with the environment the daemon started with, and values
+  the hook sets stay in the daemon between commands. From 22.7.0 the client's
+  environment is forwarded. With the daemon on, the hook's output goes to the
+  daemon log, not the terminal.
 
 ## Open questions
 
@@ -110,7 +134,7 @@ Superseded decisions are kept, struck through, so the history stays readable.
 |---|---|---|
 | Q-1 to Q-16 | Clients, auth, writers, size, network, workspaces, retention, encryption, environments, run length, Nx versions, observability, tooling, token setup, WAF, front door | Answered (see decisions) |
 | Q-17 | Which registry publishes `nx-s3-serverless-cache`? | Name answered → D-32. Registry deferred. |
-| Q-18 | CI platform for this repo's offline checks | Assumed GitHub Actions; confirm |
+| Q-18 | CI platform for this repo's offline checks | Assumed GitHub Actions ([workflow](../../.github/workflows/ci.yml)); confirm |
 | Q-19 | Alarm recipients and operations owner | Answered → D-33 |
 | Q-20 | Do allowed roles apply per workspace or to the whole cache? | Answered → D-27 |
 | Q-21 | Role identifier format | Answered → D-27 (exact ARNs) |
@@ -119,4 +143,4 @@ Superseded decisions are kept, struck through, so the history stays readable.
 
 Authentication questions (AQ-1 to AQ-4) are all answered; see
 [02](./02-authentication-and-authorization.md#7-questions). Client behaviour
-questions (CQ-1 to CQ-10) are answered by SPIKE-1, not by a product decision.
+questions (CQ-1 to CQ-10) were answered by SPIKE-1 (01 §5, 05 §6).

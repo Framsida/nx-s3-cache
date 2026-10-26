@@ -65,7 +65,7 @@ Runs once before every Nx command that runs tasks.
 | # | Step |
 |---|---|
 | 1 | If `NX_S3_SERVERLESS_CACHE_DISABLED=true`, do nothing. |
-| 2 | If `NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN` is already set, do nothing. This lets CI or a user supply a token made with the CLI. |
+| 2 | If `NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN` is already set, do nothing. This lets CI or a user supply a token made with the CLI. A token the plugin set itself in an earlier command does not count: Nx before 22.7 keeps hook values in the daemon (CQ-8), so the plugin also sets `NX_S3_SERVERLESS_CACHE_ISSUED` to a fingerprint of its token and replaces a token that matches it. |
 | 3 | Resolve AWS credentials with the AWS SDK v3 default provider chain, using `profile` if set. This covers environment variables, IAM Identity Center (SSO), shared config files, container credentials (ECS, CodeBuild), EC2 instance metadata and web identity. |
 | 4 | Create the token as in 02, section 3, with `X-Amz-Expires = tokenLifetimeSeconds`. |
 | 5 | Set `NX_SELF_HOSTED_REMOTE_CACHE_SERVER = <url>/<workspace>` (03, URL-1; or the URL-2 fallback) and `NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN = <token>` on `process.env`. |
@@ -73,7 +73,9 @@ Runs once before every Nx command that runs tasks.
 - **PL-1 Never break the build.** Any failure (no credentials, timeout, bad
   config) prints one warning and sets `NX_SELF_HOSTED_REMOTE_CACHE_SERVER` to
   the empty string, which turns the HTTP cache off for the run. The Nx command
-  carries on with its local cache.
+  carries on with its local cache. With the daemon on, Nx sends the hook's
+  output to `.nx/workspace-data/d/daemon.log`, not the terminal (CQ-8), so the
+  CLI's `check` is the way to diagnose a developer machine.
 - **PL-2 Actionable warnings.** For example: `Nx remote cache disabled: no AWS
   credentials found. Run "aws sso login --profile nx-cache".`
 - **PL-3 Time budget.** Credential resolution and signing MUST finish within
@@ -102,10 +104,14 @@ nx-s3-serverless-cache check
   `eval "$(npx nx-s3-serverless-cache token --format env)"`. `--format json`
   prints the token, server URL and effective expiry.
 - **CLI-3** `check` creates a token and sends `GET` for a fixed probe hash that
-  is never stored. It reports `404` as "authenticated, read allowed", `403` as
-  "authenticated, but your role is not on the cache's allowed list", `401` as
-  "token rejected", and anything else as a server problem. Write access cannot
-  be checked without writing, and the output says so.
+  is never stored. Because every failure on `GET` is a `404` (D-34), it reads the
+  `x-nx-cache-outcome` header: `miss` (or a `200`) is "authenticated, read
+  allowed", `forbidden` is "authenticated, but your role is not on the cache's
+  allowed list", `unauthenticated` is "token rejected", `bad_request` is a
+  configuration problem, a `404` without the header means the URL is not a
+  cache, and anything else is a server problem. Without the header, `401` and
+  `403` are read as their usual meanings. Write access cannot be checked
+  without writing, and the output says so.
 - **CLI-4** Exit codes: `0` success; `1` no credentials or token rejected;
   `2` configuration error; `3` server unreachable or `5xx`.
 
@@ -117,14 +123,20 @@ nx-s3-serverless-cache check
 - **LT-2** Server default `TOKEN_MAX_LIFETIME_SECONDS` is 3600. Both are
   configurable. The server value is a Terraform input.
 
-## 6. Questions for SPIKE-1
+## 6. Answers from SPIKE-1
 
-- **CQ-8** With the Nx daemon on, the hook runs in the daemon or in a plugin
-  worker. Does it see the invoking shell's AWS environment (`AWS_PROFILE`,
-  `AWS_ACCESS_KEY_ID` and so on), or the environment from when the daemon
-  started? Test with the daemon on and off, and with plugin isolation on and off.
-- **CQ-9** Does setting `NX_SELF_HOSTED_REMOTE_CACHE_SERVER` to the empty
-  string from the hook turn the HTTP cache off on every supported Nx version
-  (PL-1)?
-- **CQ-10** Is a value set by the hook visible to the Rust client in every
-  supported Nx version (PC-5)?
+- **CQ-8** Without the daemon, the hook sees the invoking shell's environment,
+  with plugin isolation on or off. With the daemon on, Nx 21.0.0 to 22.6 run the
+  hook with the environment the daemon was started with, and values the hook
+  sets stay in the daemon between commands. From 22.7.0 Nx forwards the
+  client's environment to the daemon and its plugin workers, and removes keys
+  the client does not have. With the daemon on, the hook's output goes to the
+  daemon log. On older versions, set `profile`, or stop the daemon after
+  changing AWS variables in the shell.
+- **CQ-9** Yes, on 21.0.0 and 24.0.1, daemon on or off: Nx tests the variable
+  for truthiness.
+- **CQ-10** Yes, in every mode on 21.0.0 and 24.0.1 (on 21.0.0 with the daemon,
+  from the daemon's environment as in CQ-8). Nx records what the hook sets
+  through a proxy on `process.env`, so the plugin reads `process.env` at call
+  time. The plugin itself was then checked the same way, from a packed tarball,
+  including a second command under the daemon.

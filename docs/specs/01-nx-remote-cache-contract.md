@@ -62,8 +62,8 @@ the body as **opaque bytes**.
 ## 3. Observed client behaviour (informative, from `nx@24.0.1`)
 
 These points come from reading the published `nx` package and the strings in its
-native binary. They are not part of the upstream contract and **MUST be confirmed
-by the client spike (SPIKE-1)** before design decisions rely on them.
+native binary. They are not part of the upstream contract. SPIKE-1 confirmed
+them on `nx@21.0.0` and `nx@24.0.1` (section 5).
 
 - **CB-1 Rust HTTP client.** The HTTP cache is implemented in Rust
   (`packages/nx/src/native/cache/http_remote_cache.rs`) using `reqwest` 0.12 with
@@ -91,36 +91,55 @@ by the client spike (SPIKE-1)** before design decisions rely on them.
   exactly as in section 1, including status codes and `text/plain` error bodies.
 - **CON-2** The server MUST validate `hash` against a strict allow-list pattern
   before using it in any storage key, so a crafted hash cannot escape its key
-  prefix. (Exact pattern to be fixed once SPIKE-1 records real hash values.)
+  prefix. The pattern is `^[A-Za-z0-9]{1,128}$` (D-37): Nx sends 1 to 20
+  decimal digits, and letters keep custom task hashers working.
 - **CON-3** Records are immutable. A `PUT` for a hash that already exists MUST
   return `409` and MUST NOT change the stored object, including under concurrent
   uploads of the same hash.
 - **CON-4** A `PUT` without `Content-Length` MUST be rejected. A body whose
   length differs from `Content-Length` MUST NOT be stored.
 - **CON-5** A `GET` for a missing hash MUST return `404` with no body.
-- **CON-6** A missing, malformed or expired token MUST return `401`. A valid
-  identity without the needed permission MUST return `403`. Both carry a short
-  `text/plain` message that tells the CLI user what to do.
+- **CON-6** ~~A missing, malformed or expired token MUST return `401`. A valid
+  identity without the needed permission MUST return `403`.~~ Amended by D-34,
+  because Nx fails the whole command on a `401`, and on a `403` for `GET`
+  (section 5, CQ-1 and CQ-5). A missing, malformed or expired token, and a valid
+  identity without the needed permission, get a miss on `GET` (`404`) and a
+  skipped upload on `PUT` (`403` with a short `text/plain` message that tells
+  the user what to do). The `x-nx-cache-outcome` response header says which
+  (`unauthenticated`, `forbidden`).
 - **CON-7** Error messages MUST NOT reveal internal details such as bucket names,
   account IDs, role ARNs or stack traces.
 - **CON-8** The server MUST NOT read, change or re-encode artifact bytes.
 - **CON-9** A successful `GET` MUST return `Content-Type: application/octet-stream`
   and the exact bytes that were stored.
 
-## 5. Open questions on the contract
+## 5. Answers from SPIKE-1
 
-These are answered by SPIKE-1 (a stub server plus a real Nx workspace), not by a
-product decision.
+SPIKE-1 ran a stub server against real workspaces on `nx@21.0.0` and
+`nx@24.0.1`, with the daemon and plugin isolation on and off. The tool and raw
+results are in [`tools/spike-stub-server`](../../tools/spike-stub-server/README.md).
+Both versions behaved the same for these questions.
 
-- **CQ-1** How does the client react to `401` on `GET`? It contains an
-  `Unauthorized:` message, so it probably handles it; confirm.
-- **CQ-2** Does the client follow `307` redirects for `GET` and for `PUT`, re-send
-  the `PUT` body, and drop `Authorization` on a cross-host redirect? (CB-4)
-- **CQ-3** Does `NX_SELF_HOSTED_REMOTE_CACHE_SERVER` keep a path prefix, for
-  example `https://cache.example.com/workspace-a` → `/workspace-a/v1/cache/{hash}`?
-- **CQ-4** Is the token read once per command or per request? (CB-3)
-- **CQ-5** How does the client treat `409`, `403`, `5xx` and timeouts? Do they
-  fail the Nx run or only print a warning?
-- **CQ-6** What do real hashes look like (alphabet, length)? Feeds CON-2.
-- **CQ-7** What are the client's connect and request timeouts? Affects how long
-  Lambda can take.
+- **CQ-1** A `401` is shown as `Unauthorized: <body>` and **fails the Nx
+  command**, on `GET` and on `PUT`.
+- **CQ-2** `307` and `308` are followed for `GET` and `PUT`. The `PUT` body is
+  re-sent. `Authorization` is kept on a same-origin redirect and dropped on a
+  cross-origin one. CB-4 is confirmed; D-10 stands for now.
+- **CQ-3** The path prefix is kept: `https://cache.example.com/workspace-a`
+  gives `/workspace-a/v1/cache/{hash}`. A trailing slash gives `//v1`, so the
+  plugin strips it. URL-1 is used (D-38).
+- **CQ-4** The token is read once per command: a value changed in the process
+  during a run was not used by later requests. CB-3 is confirmed.
+- **CQ-5** Only `200` and `404` on `GET`, and `200`, `403` and `409` on `PUT`,
+  let the command succeed. A `403` on `PUT` is silent; its body is not shown.
+  Every other status (including `400`, `403` on `GET`, `404` on `PUT`, `411`,
+  `413`, `429` and `5xx`), a `200` whose body is not a tarball, and a refused
+  connection fail the command with `Misconfigured remote cache endpoint:
+  Unexpected response status: …` or `Failed to send request`. This led to D-34,
+  D-35 and D-36.
+- **CQ-6** Hashes are decimal strings of 1 to 20 digits (u64), for example
+  `8485680016397879100` and `18245694509759097932`. `PUT` bodies are gzip
+  (`1f8b08…`). `GET` requests carry `Content-Type: application/octet-stream` and
+  no body.
+- **CQ-7** No client timeout was found: an answer after 35 s was accepted, and an
+  unanswered request was still waiting after 280 s.
