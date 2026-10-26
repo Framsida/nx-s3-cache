@@ -4,13 +4,14 @@
 |---|---|
 | Status | Draft |
 | Depends on | [03](./03-architecture-and-request-handling.md) |
-| Decisions | D-16 (isolated workspaces), D-17 (14-day retention), D-18 (SSE-S3) |
+| Decisions | D-16 (per-workspace key prefixes), D-17 (14-day retention), D-18 (SSE-S3), D-27 (admin and allowed roles) |
 
 The key words MUST, MUST NOT, SHOULD and MAY are used as in RFC 2119.
 
 ## 1. Bucket
 
-- **S3-1** One bucket per environment. Its name is a Terraform input.
+- **S3-1** One bucket per cache instance (06, TF-2). Its name is a Terraform
+  input with a generated default.
 - **S3-2** All four Block Public Access settings are on.
 - **S3-3** Object Ownership is `BucketOwnerEnforced` (ACLs disabled).
 - **S3-4** Default encryption is SSE-S3 (`AES256`).
@@ -24,11 +25,14 @@ The key words MUST, MUST NOT, SHOULD and MAY are used as in RFC 2119.
 
 - **S3-POL-1** Deny any request where `aws:SecureTransport` is `false`.
 - **S3-POL-2** Deny `s3:GetObject` and `s3:PutObject` on `v1/*` to every
-  principal except the handler's execution role and a break-glass administrator
-  role (a Terraform input). This keeps other identities in the account out of
-  the cache data, even if their IAM policies would allow it.
-- **S3-POL-3** Deletion is allowed only for the lifecycle service and the
-  break-glass role (for purges, R1-M4 in 02).
+  principal except the handler's execution role and the roles in
+  `admin_role_arns` (06). This keeps other identities in the account out of the
+  cache data, even if their IAM policies would allow it. The deny MUST NOT cover
+  bucket policy changes, so the account's administrators cannot lock
+  themselves out.
+- **S3-POL-3** `s3:DeleteObject` on `v1/*` is denied to every principal except
+  the roles in `admin_role_arns` (for purges, R1-M4 in 02). Lifecycle expiry is
+  not affected by bucket policies.
 
 ## 3. Key layout
 
@@ -73,5 +77,5 @@ Upload time is the object's `LastModified`.
 - **AUD-2** The handler's log retention MUST be at least `retention_days`, so
   every object still stored can be traced to its writer.
 - **AUD-3** Purge procedure: a CloudWatch Logs Insights query over AUD-1 lines
-  lists the keys written by a given principal or session. The break-glass role
-  then deletes them. Runbook in [09](./09-operations.md), OPS-1.
+  lists the keys written by a given principal or session. An admin role
+  (`admin_role_arns`) then deletes them. Runbook in [09](./09-operations.md), OPS-1.

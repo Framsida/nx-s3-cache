@@ -4,7 +4,7 @@
 |---|---|
 | Status | Draft |
 | Depends on | [01](./01-nx-remote-cache-contract.md), [02](./02-authentication-and-authorization.md), [04](./04-storage.md) |
-| Decisions | D-10, D-12 to D-16 |
+| Decisions | D-10, D-12, D-13, D-15, D-16, D-27 |
 
 The key words MUST, MUST NOT, SHOULD and MAY are used as in RFC 2119.
 
@@ -22,7 +22,7 @@ The key words MUST, MUST NOT, SHOULD and MAY are used as in RFC 2119.
                  │ HTTPS  GET|PUT /<workspace>/v1/cache/<hash>
                  │ Authorization: Bearer nxcache-v1.…
                  ▼
- Route 53  nx-cache.<domain>  (alias)
+ Route 53  <domain_name>  (alias, in an existing hosted zone)
                  ▼
  API Gateway REST API (Regional, custom domain, TLS 1.2+)
                  │ Lambda proxy integration
@@ -34,11 +34,14 @@ The key words MUST, MUST NOT, SHOULD and MAY are used as in RFC 2119.
 
 | Component | Responsibility |
 |---|---|
-| Nx plugin + CLI (spec 05) | Mint the bearer token from local AWS credentials. Set the Nx environment variables. |
+| Nx plugin + CLI (05) | Mint the bearer token from local AWS credentials. Set the Nx environment variables. |
 | API Gateway REST API | TLS, custom domain, routing, throttling, access logs, plain-text gateway errors. No authentication of its own. |
 | Lambda `nx-cache-handler` | Validate the request, authenticate (02), authorize, read and write S3. |
-| S3 bucket (spec 04) | Artifact storage, retention, encryption. |
+| S3 bucket (04) | Artifact storage, retention, encryption. |
 | STS | Verifies the caller's signature and returns the caller's identity. |
+
+All of this is created by the Terraform module (06), which deployers apply from
+their own repositories.
 
 ## 2. URL layout and workspaces
 
@@ -52,18 +55,20 @@ The key words MUST, MUST NOT, SHOULD and MAY are used as in RFC 2119.
   `nxcache-v1.<workspace>.<base64url URL>`. The chosen option is recorded here
   when SPIKE-1 completes.
 - **WS-1** A workspace ID matches `^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$`.
-- **WS-2** The set of workspaces is a Terraform input. A request for a workspace
-  that is not in the set gets the same `403` as a request without access, so
-  callers cannot discover which workspaces exist.
-- **WS-3** Each workspace has its own S3 key prefix (04). Isolation is enforced
-  by the handler's authorization check, plus the key prefix.
+- **WS-2** Workspace IDs are not registered anywhere. Any ID that matches WS-1
+  is accepted, so adding a workspace needs no Terraform change (D-27).
+- **WS-3** Each workspace has its own S3 key prefix (04) and its own metric
+  dimension (07). There is no access isolation between workspaces: every
+  allowed role can read and write all of them (D-27). Separate prefixes keep
+  artifacts apart and allow per-workspace purges.
 
 ## 3. API Gateway (REST API)
 
 - **APIGW-1** Endpoint type `REGIONAL`. The default `execute-api` endpoint MUST
   be disabled, so the custom domain is the only way in.
 - **APIGW-2** Custom domain with an ACM certificate in the same region, security
-  policy TLS 1.2 or newer, and a Route 53 alias record.
+  policy TLS 1.2 or newer, and a Route 53 alias record in the existing hosted
+  zone (06).
 - **APIGW-3** Exactly one resource path, `/{workspace}/v1/cache/{hash}`, with
   `GET` and `PUT` methods. Both use a Lambda proxy integration with
   authorization type `NONE`. Authentication happens in the handler so that
@@ -91,19 +96,20 @@ The key words MUST, MUST NOT, SHOULD and MAY are used as in RFC 2119.
 - **APIGW-8** Execution logging with full request and response data MUST be
   off. It would write bearer tokens to the logs.
 - **APIGW-9** No WAF web ACL (D-19). Abuse is contained by stage throttling
-  (APIGW-6), Lambda reserved concurrency (FN-3) and rejecting malformed tokens
-  before any STS call (02, steps 1–5). If a WAF is added later, its rules MUST
-  NOT block binary bodies up to the artifact size limit. For example, the AWS
-  managed rule `SizeRestrictions_BODY` blocks bodies over 8 KB.
+  (APIGW-6), optional Lambda reserved concurrency (FN-3) and rejecting malformed
+  tokens before any STS call (02, steps 1–5). If a WAF is added later, its rules
+  MUST NOT block binary bodies up to the artifact size limit. For example, the
+  AWS managed rule `SizeRestrictions_BODY` blocks bodies over 8 KB.
 
 ## 4. Lambda function
 
 - **FN-1** One function, `nx-cache-handler`, written in TypeScript and bundled
-  to a single file. Architecture `arm64`. The Node.js version is open (Q-13).
+  to a single file. Runtime `nodejs24.x`, architecture `arm64`. It logs its
+  release version once at cold start.
 - **FN-2** Memory 1024 MB and timeout 20 s by default (below the 29 s API Gateway
   integration timeout). Both are Terraform inputs.
-- **FN-3** Reserved concurrency is a Terraform input. It caps cost and the blast
-  radius of abuse.
+- **FN-3** Reserved concurrency is an optional Terraform input. Setting it caps
+  cost and the blast radius of abuse.
 - **FN-4** The function is **not** attached to a VPC. It only calls public AWS
   endpoints (STS, S3), so this avoids NAT cost.
 - **FN-5** Configuration via environment variables:
@@ -111,15 +117,15 @@ The key words MUST, MUST NOT, SHOULD and MAY are used as in RFC 2119.
   | Variable | Meaning |
   |---|---|
   | `BUCKET_NAME` | Artifact bucket |
-  | `STS_REGION` | Region of the STS endpoint tokens must target (02, TOK-2) |
+  | `STS_REGION` | Deployment region; tokens must target its STS endpoint (02, TOK-2) |
   | `TOKEN_AUDIENCE` | Audience value (02, TOK-1) |
   | `TOKEN_MAX_LIFETIME_SECONDS` | Upper bound on `X-Amz-Expires` (02, step 5) |
   | `MAX_ARTIFACT_BYTES` | Upload size limit (section 6) |
-  | `WORKSPACES` | JSON array of workspace IDs (WS-2) |
-  | `ACCESS_RULES` | JSON array of rules (02, section 5.2) |
+  | `ALLOWED_ROLES` | JSON array of `<account>:<role name>` pairs, derived from `allowed_role_arns` (02, AUTHZ-2) |
 
-  Terraform MUST fail validation if all variables together exceed the 4 KB
-  Lambda limit. Rules move to SSM Parameter Store if that ever happens.
+  Terraform MUST fail the plan if all variables together exceed the 4 KB
+  Lambda limit (roughly 60–100 roles fit). The list moves to SSM Parameter
+  Store if that ever becomes a limit.
 - **FN-6** Execution role permissions, and nothing more:
   - `s3:GetObject` and `s3:PutObject` on `arn:aws:s3:::<bucket>/v1/*`.
   - `s3:ListBucket` on the bucket, limited to the `v1/` prefix. Without it, S3
@@ -144,7 +150,7 @@ of a record is revealed before authorization succeeds.
 | 2 | `workspace` matches WS-1; `hash` matches the hash pattern (01, CON-2) | 400 |
 | 3 | `PUT` only: `Content-Length` present, integer, ≤ `MAX_ARTIFACT_BYTES` | missing → 411, too large → 413 |
 | 4 | Authenticate (02, section 4) | 401 / 503 |
-| 5 | Authorize: workspace is known (WS-2), a rule grants this workspace, and the method's permission (02, AUTHZ-3) | 403 |
+| 5 | Authorize: the caller's role is in `ALLOWED_ROLES` and has the method's permission (02, AUTHZ-4) | 403 |
 | 6 | `GET`: storage read (5.2). `PUT`: storage write (5.3) | see below |
 
 ### 5.2 `GET`
@@ -180,7 +186,7 @@ internal detail (01, CON-7).
 |---|---|---|
 | 400 | Bad workspace or hash syntax; body length mismatch | `Invalid cache request` |
 | 401 | Missing, malformed, expired or rejected token | `Nx cache: AWS credentials missing or expired. Run "aws sso login" and retry.` |
-| 403 | Not allowed into this workspace, or missing permission | `Nx cache: your AWS role is not allowed to read/write workspace "<ws>".` |
+| 403 | Role not on the allowed list | `Nx cache: your AWS role is not allowed to use this cache.` |
 | 404 | Cache miss or unknown route | (no body) |
 | 409 | Record already exists | (no body) |
 | 411 | `PUT` without `Content-Length` | `Content-Length is required` |
@@ -207,5 +213,5 @@ internal detail (01, CON-7).
 
 - **SPIKE-1** (client behaviour, against a stub server): answers 01 CQ-1 to CQ-7,
   and confirms PC-5 (token set by `preTasksExecution` reaches the Rust client).
-- **SPIKE-2** (deployed stack): binary round trips through the REST API
+- **SPIKE-2** (a test deployment): binary round trips through the REST API
   (APIGW-4), gateway error bodies (APIGW-5), and oversize behaviour (SIZE-3).

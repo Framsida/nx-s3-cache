@@ -25,8 +25,9 @@ on the latest Nx.
 
 ### SPIKE-2 — Deployed stack
 
-Run against the first deployment to dev. Afterwards it becomes the end-to-end
-suite in section 5.
+Run against a test deployment that a maintainer makes from outside this
+repository (D-30). Afterwards it becomes part of the end-to-end suite in
+section 5.
 
 - **SP2-1** Byte-for-byte round trips of artifacts at 0 B, 1 B, 1 MiB and the
   size limit (03, APIGW-4).
@@ -44,9 +45,11 @@ suite in section 5.
   - `http` scheme, a non-root path, repeated or extra query parameters,
   - audience header not signed, expired tokens, tokens dated in the future,
     oversized tokens, invalid base64url.
-- **UT-2 Identity and rules.** ARN normalization for every row in 02 table 5.1.
-  Rule matching: exact names, prefix `*`, the workspace `*`, unions across rules,
-  no match.
+- **UT-2 Identity and allowed roles.** ARN normalization for every row in 02
+  table 5.1. Allowed-role matching (02, AUTHZ-2): configured ARNs with and
+  without IAM paths, role-name case differences, the same role name in two
+  accounts where only one is listed, and no match. Rejection of invalid
+  configured ARNs (AUTHZ-5).
 - **UT-3 Request handling.** Every row of 03 table 5.1 and every status in table
   5.4. Path traversal attempts in `workspace` and `hash` (`..`, `%2F`, encoded
   Unicode, empty segments).
@@ -75,23 +78,26 @@ suite in section 5.
 - **IT-2** Concurrent `PUT`s of the same hash leave exactly one object and return
   `200` once, `409` for the rest (01, CON-3).
 
-## 5. End-to-end tests (deployed dev)
+## 5. End-to-end tests (against an existing deployment)
 
 - **E2E-1** Fixture Nx workspaces on Nx 21.0.0 and the latest Nx, each with the
   plugin installed:
   1. A build with an allowed role stores outputs.
   2. After clearing the local cache, the same build is a remote cache hit.
-  3. A role that matches no rule gets `403`. The build still passes.
-  4. A role allowed in workspace A gets `403` in workspace B.
+  3. A role that is not on the allowed list gets `403`. The build still passes.
+  4. One allowed role reads and writes two workspaces, and their artifacts stay
+     under separate prefixes.
   5. An artifact over the size limit gets `413`. The build still passes.
   6. With no AWS credentials, the plugin warns and the build passes on the
      local cache.
-- **E2E-2** The roles used by E2E tests are created by the dev environment's
-  Terraform root, not by the module.
+- **E2E-2** The suite runs against a deployment given by environment variables
+  (URL, region, audience), with two AWS profiles: one for a listed role and one
+  for an unlisted role. Nothing in this repository creates the deployment or the
+  roles (D-30). Maintainers run it by hand before a release.
 
 ## 6. Infrastructure tests
 
-As in 06 TF-10 and TF-11.
+As in 06 section 6 (offline only: TF-11 and TF-12).
 
 ## 7. Coverage
 

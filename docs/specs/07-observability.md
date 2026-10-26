@@ -60,7 +60,7 @@ Emitted by the handler in CloudWatch Embedded Metric Format. No extra API calls.
 
 ## 3. Dashboard
 
-One dashboard per environment, showing:
+One dashboard per instance, showing:
 
 - requests by outcome, and hit rate overall and per workspace;
 - artifact size p50, p95 and maximum, and oversize rejections (handler and
@@ -70,9 +70,12 @@ One dashboard per environment, showing:
 
 ## 4. Alarms
 
-All alarms notify the environment's SNS topic, which has email subscriptions
-from `alarm_emails`. Each alarm sends both an alarm and an OK notification.
-Thresholds are Terraform inputs; the defaults are below.
+Alarms go to whoever deploys the instance (D-33). They notify one SNS topic:
+either an existing topic the deployer passes in (`alarm_sns_topic_arn`), or a
+topic the module creates with one email subscription per address in
+`alarm_emails`. Each address must confirm the subscription email from AWS
+before it receives alarms. Each alarm sends both an alarm and an OK
+notification. Thresholds are Terraform inputs; the defaults are below.
 
 | Alarm | Condition (default) |
 |---|---|
@@ -83,5 +86,8 @@ Thresholds are Terraform inputs; the defaults are below.
 | S3 failures | `UpstreamError{Upstream=s3}` > 10 in five minutes |
 | Missing data | Missing data is treated as not breaching (quiet periods are normal) |
 
-- **ALM-1** When `alarms_enabled = false` (allowed in dev), the alarms are not
-  created. The dashboard always is.
+- **ALM-1** When `alarms_enabled = false` (for example, in a dev instance), the
+  alarms are not created. The dashboard always is.
+- **ALM-2** When alarms are enabled but neither `alarm_emails` nor
+  `alarm_sns_topic_arn` is set, the alarms are created without notifications,
+  and a Terraform `check` block warns at plan time that nobody will be told.

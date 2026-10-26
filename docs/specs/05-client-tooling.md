@@ -4,16 +4,19 @@
 |---|---|
 | Status | Draft |
 | Depends on | [02](./02-authentication-and-authorization.md), [03](./03-architecture-and-request-handling.md) |
-| Decisions | D-14 (plugin + CLI), D-21 (commands under 1 hour), D-22 (Nx 21 or newer) |
+| Decisions | D-14 (plugin + CLI), D-21 (commands under 1 hour), D-22 (Nx 21 or newer), D-32 (package name) |
 
 The key words MUST, MUST NOT, SHOULD and MAY are used as in RFC 2119.
 
 ## 1. Package
 
-- **PKG-1** One npm package (name and registry open: Q-17) holds:
+- **PKG-1** One npm package, **`nx-s3-serverless-cache`**, holds:
   - the Nx plugin entry point, exporting `preTasksExecution`;
-  - a CLI binary, `nx-cache-token`;
+  - a CLI binary with the same name, `nx-s3-serverless-cache`, so that
+    `npx nx-s3-serverless-cache check` works without installing anything first;
   - a shared library that creates tokens, used by both.
+
+  The registry it is published to is decided later (Q-17).
 - **PKG-2** Supported Nx versions: 21.0.0 or newer (D-22). Both the HTTP remote
   cache and the `preTasksExecution` env propagation exist from 20.8.0, so 21.0.0
   is a safe floor.
@@ -21,6 +24,8 @@ The key words MUST, MUST NOT, SHOULD and MAY are used as in RFC 2119.
   PKG-2 (Node.js 20 or newer). Set in `engines`.
 - **PKG-4** Runtime dependencies are limited to the AWS SDK v3 credential
   providers and the SigV4 signer. No AWS service clients are needed.
+- **PKG-5** The package version equals the release tag of this repository
+  (10, DEL-3).
 
 ## 2. Configuration in the consuming workspace
 
@@ -29,12 +34,12 @@ The key words MUST, MUST NOT, SHOULD and MAY are used as in RFC 2119.
 {
   "plugins": [
     {
-      "plugin": "<package name>",
+      "plugin": "nx-s3-serverless-cache",
       "options": {
         "url": "https://nx-cache.example.com",  // required
         "workspace": "web-platform",            // required, matches 03 WS-1
-        "region": "eu-west-1",                  // required, STS region (02 TOK-2)
-        "audience": "nx-cache:prod",            // required (02 TOK-1)
+        "region": "eu-west-1",                  // required, deployment region (02 TOK-2)
+        "audience": "nx-cache.example.com",     // optional, defaults to the url's host (02 TOK-1)
         "profile": "nx-cache",                  // optional AWS profile
         "tokenLifetimeSeconds": 3600            // optional, default 3600
       }
@@ -42,6 +47,9 @@ The key words MUST, MUST NOT, SHOULD and MAY are used as in RFC 2119.
   ]
 }
 ```
+
+The Terraform module's `plugin_options` output gives `url`, `region` and
+`audience` for a deployment (06).
 
 - **CFG-1** Invalid options (missing field, bad URL, bad workspace ID) print one
   error line and disable the remote cache for the run. They MUST NOT fail the
@@ -56,7 +64,7 @@ Runs once before every Nx command that runs tasks.
 
 | # | Step |
 |---|---|
-| 1 | If `NX_IAM_CACHE_DISABLED=true`, do nothing. |
+| 1 | If `NX_S3_SERVERLESS_CACHE_DISABLED=true`, do nothing. |
 | 2 | If `NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN` is already set, do nothing. This lets CI or a user supply a token made with the CLI. |
 | 3 | Resolve AWS credentials with the AWS SDK v3 default provider chain, using `profile` if set. This covers environment variables, IAM Identity Center (SSO), shared config files, container credentials (ECS, CodeBuild), EC2 instance metadata and web identity. |
 | 4 | Create the token as in 02, section 3, with `X-Amz-Expires = tokenLifetimeSeconds`. |
@@ -79,11 +87,11 @@ Runs once before every Nx command that runs tasks.
   With `NX_VERBOSE_LOGGING=true` the plugin MAY log the credential source,
   region, workspace and effective expiry.
 
-## 4. CLI (`nx-cache-token`)
+## 4. CLI (`nx-s3-serverless-cache`)
 
 ```
-nx-cache-token [token] [--format token|env|json]
-nx-cache-token check
+nx-s3-serverless-cache token [--format token|env|json]
+nx-s3-serverless-cache check
   common options: --url --workspace --region --audience --profile --lifetime
 ```
 
@@ -91,17 +99,17 @@ nx-cache-token check
   Command-line flags override them.
 - **CLI-2** `token --format token` (default) prints the bare token.
   `--format env` prints `export` lines for both Nx variables, for use with
-  `eval "$(nx-cache-token --format env)"`. `--format json` prints the token,
-  server URL and effective expiry.
+  `eval "$(npx nx-s3-serverless-cache token --format env)"`. `--format json`
+  prints the token, server URL and effective expiry.
 - **CLI-3** `check` creates a token and sends `GET` for a fixed probe hash that
   is never stored. It reports `404` as "authenticated, read allowed", `403` as
-  "authenticated, not allowed into this workspace", `401` as "token rejected",
-  and anything else as a server problem. Write access cannot be checked without
-  writing, and the output says so.
+  "authenticated, but your role is not on the cache's allowed list", `401` as
+  "token rejected", and anything else as a server problem. Write access cannot
+  be checked without writing, and the output says so.
 - **CLI-4** Exit codes: `0` success; `1` no credentials or token rejected;
   `2` configuration error; `3` server unreachable or `5xx`.
 
-## 5. Token lifetime (AQ-2)
+## 5. Token lifetime
 
 - **LT-1** Client default `tokenLifetimeSeconds` is 3600 (D-21: the longest Nx
   command is under 1 hour, and the plugin mints a fresh token for every
